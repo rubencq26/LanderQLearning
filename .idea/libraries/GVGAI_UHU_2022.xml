@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="GVGAI_UHU_2022">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/GVGAI_UHU_2022.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/lib/GVGAI_UHU_2022.jar!/doc/javadoc" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/GVGAI_UHU_2022.jar!/clients/GVGAI-JavaClient/src" />
+    </SOURCES>
+  </library>
+</component>
