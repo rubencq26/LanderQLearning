@@ -1,21 +1,22 @@
-import java.awt.*;
 import java.io.*;
 import java.util.Random;
 
+/**
+ * Tabla Q y algoritmo Q-learning. No depende de GVGAI: solo guarda valores,
+ * elige acciones (epsilon-greedy) y aplica la actualización.
+ */
 public class QLearning {
-    private static int NUM_ESTADOS;
-    private static final int NUM_ACCIONES = 4;
-    private float [][]Q;
 
-
-    private static final String CARPETA = "table";
+    public static final int NUM_ESTADOS = Cerebro.numEstados();   // siempre coincide con la discretización de Cerebro
+    public static final int NUM_ACCIONES = 4;         // 0 NIL, 1 UP, 2 LEFT, 3 RIGHT
+    public static final String CARPETA = "table";
     public static final String[] NOMBRES_ACCION = {"NIL", "UP", "LEFT", "RIGHT"};
 
-    public double alpha;
-    public double gamma;
-    public double epsilon;
-
-    public Random rnd;
+    private final float[][] Q = new float[NUM_ESTADOS][NUM_ACCIONES];
+    public double alpha;      // tasa de aprendizaje
+    public double gamma;      // factor de descuento
+    public double epsilon;    // probabilidad de explorar
+    private final Random rnd;
 
     public QLearning(double alpha, double gamma, double epsilon, int seed) {
         this.alpha = alpha;
@@ -24,48 +25,41 @@ public class QLearning {
         this.rnd = new Random(seed);
     }
 
-    public int elegirAccion(int s, boolean explorar){
-        if(explorar && rnd.nextDouble() < epsilon){
+    /** epsilon-greedy si explorar = true; greedy puro si no. Los empates se resuelven al azar. */
+    public int elegirAccion(int s, boolean explorar) {
+        if (explorar && rnd.nextDouble() < epsilon) {
             return rnd.nextInt(NUM_ACCIONES);
         }
-
-        float mejorValor = Float.MIN_VALUE;
-        int mejorAccion = -1;
-        int empatadas = 0;
-
-        for(int i = 0; i < NUM_ACCIONES; i++){
-            if(Q[s][i] > mejorValor){
-                mejorValor = Q[s][i];
-                mejorAccion = i;
-                empatadas = 1;
-            }else if(Q[s][i] == mejorValor){
-                empatadas++;
-                if(rnd.nextDouble() < (double)(1 / empatadas)){
-                    mejorAccion = i;
-                }
+        int mejor = 0, empates = 1;
+        for (int a = 1; a < NUM_ACCIONES; a++) {
+            if (Q[s][a] > Q[s][mejor]) {
+                mejor = a;
+                empates = 1;
+            } else if (Q[s][a] == Q[s][mejor] && rnd.nextInt(++empates) == 0) {
+                mejor = a;
             }
         }
-        return mejorAccion;
+        return mejor;
     }
 
-    public float maxQ(int s){
-        float maximo =  Float.MIN_VALUE;
-
-        for(int i = 0; i < NUM_ACCIONES; i++){
-            if(Q[s][i] > maximo){
-                maximo = Q[s][i];
-            }
-        }
-        return maximo;
+    public double maxQ(int s) {
+        double m = Q[s][0];
+        for (int a = 1; a < NUM_ACCIONES; a++) m = Math.max(m, Q[s][a]);
+        return m;
     }
 
-    public void actualizar(int s, int a, int r, int sSig){
-        Q[s][a] = (float)(Q[s][a] + alpha * (r + gamma * maxQ(sSig) - Q[s][a]));
+    /** Q(s,a) += alpha * (r + gamma * max Q(s') - Q(s,a)) */
+    public void actualizar(int s, int a, double r, int sSiguiente) {
+        Q[s][a] += alpha * (r + gamma * maxQ(sSiguiente) - Q[s][a]);
     }
 
-    public void actualizarTerminal(int s, int a, int r){
-        Q[s][a] = (float)(Q[s][a] + alpha * (r - Q[s][a]));
+    /** Último paso del episodio: no hay estado siguiente, el objetivo es solo r. */
+    public void actualizarTerminal(int s, int a, double r) {
+        Q[s][a] += alpha * (r - Q[s][a]);
     }
+
+    // ---------------- Guardar / cargar en CSV: table/<nombre>.csv ----------------
+    // Una fila por estado (la fila i es el estado i) y una columna por acción.
 
     public void guardar(String nombre) throws IOException {
         File carpeta = new File(CARPETA);
@@ -107,20 +101,40 @@ public class QLearning {
         System.out.println("Tabla cargada de " + fichero.getPath());
     }
 
-    public float valor(int s, int a){
+    // ---------------- Consulta (para pintar la tabla) ----------------
+    public float valor(int s, int a) {
         return Q[s][a];
     }
 
-    public boolean estadoVisitado(int s){
+    /** Un estado está visitado si alguno de sus valores es distinto de 0 (la tabla empieza a 0). */
+    public boolean estadoVisitado(int s) {
         for (int a = 0; a < NUM_ACCIONES; a++) if (Q[s][a] != 0) return true;
         return false;
     }
 
-    public int mejorAccion(int s){
+    /** Número de estados visitados (con algún valor distinto de 0). */
+    public int estadosLlenos() {
+        int llenos = 0;
+        for (int s = 0; s < NUM_ESTADOS; s++) if (estadoVisitado(s)) llenos++;
+        return llenos;
+    }
+
+    /** Porcentaje (0-100) de estados visitados sobre el total. */
+    public double porcentajeLlenado() {
+        return 100.0 * estadosLlenos() / NUM_ESTADOS;
+    }
+
+    /** Imprime el llenado de la tabla Q: total de estados, llenos y porcentaje. */
+    public void mostrarLlenado() {
+        int llenos = estadosLlenos();
+        System.out.printf("Llenado de la tabla Q: %d / %d estados llenos (%.2f%%)%n",
+                llenos, NUM_ESTADOS, 100.0 * llenos / NUM_ESTADOS);
+    }
+
+    /** Mejor acción sin aleatoriedad (en empate, la de menor índice). */
+    public int mejorAccion(int s) {
         int mejor = 0;
         for (int a = 1; a < NUM_ACCIONES; a++) if (Q[s][a] > Q[s][mejor]) mejor = a;
         return mejor;
     }
-
 }
-
